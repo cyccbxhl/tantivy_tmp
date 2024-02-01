@@ -7,6 +7,7 @@ mod range_query;
 mod range_query_ip_fastfield;
 mod range_query_u64_fastfield;
 
+#[allow(unused_imports)]
 pub use self::range_query::{RangeQuery, RangeWeight};
 pub use self::range_query_ip_fastfield::IPFastFieldRangeWeight;
 pub use self::range_query_u64_fastfield::FastFieldRangeWeight;

@@ -4,6 +4,7 @@ mod term_weight;
 
 pub use self::term_query::TermQuery;
 pub use self::term_scorer::TermScorer;
+#[allow(unused_imports)]
 pub use self::term_weight::TermWeight;
 
 #[cfg(test)]
