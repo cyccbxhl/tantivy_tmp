@@ -555,7 +555,7 @@ impl Index {
             self,
             num_threads,
             memory_arena_in_bytes_per_thread,
-            directory_lock,
+            Some(directory_lock),
         )
     }
 
@@ -586,6 +586,32 @@ impl Index {
             num_threads = (memory_budget_in_bytes / MEMORY_BUDGET_NUM_BYTES_MIN).max(1);
         }
         self.writer_with_num_threads(num_threads, memory_budget_in_bytes)
+    }
+
+	/// Creates a multithreaded writer for pg
+    ///
+    /// We will not create index file lock in IndexWriter to let it
+    /// be used in multi-processed environment.
+    ///
+    /// The transaction system of PostgreSQL will ensure the integrity of the index.
+    ///
+    pub fn writer_for_pg(
+        &self,
+        memory_budget_in_bytes: usize,
+    ) -> crate::Result<IndexWriter> {
+        let mut num_threads = std::cmp::min(num_cpus::get(), MAX_NUM_THREAD);
+        let mut memory_budget_num_bytes_per_thread = memory_budget_in_bytes / num_threads;
+        if memory_budget_num_bytes_per_thread < MEMORY_BUDGET_NUM_BYTES_MIN {
+            num_threads = (memory_budget_in_bytes / MEMORY_BUDGET_NUM_BYTES_MIN).max(1);
+            memory_budget_num_bytes_per_thread = memory_budget_in_bytes / num_threads;
+        }
+
+        IndexWriter::new(
+            self,
+            num_threads,
+            memory_budget_num_bytes_per_thread,
+            None,
+        )
     }
 
     /// Accessor to the index settings

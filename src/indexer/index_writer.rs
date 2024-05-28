@@ -266,7 +266,7 @@ impl IndexWriter {
         index: &Index,
         num_threads: usize,
         memory_budget_in_bytes_per_thread: usize,
-        directory_lock: DirectoryLock,
+        directory_lock: Option<DirectoryLock>,
     ) -> crate::Result<IndexWriter> {
         if memory_budget_in_bytes_per_thread < MEMORY_BUDGET_NUM_BYTES_MIN {
             let err_msg = format!(
@@ -294,7 +294,7 @@ impl IndexWriter {
             SegmentUpdater::create(index.clone(), stamper.clone(), &delete_queue.cursor())?;
 
         let mut index_writer = IndexWriter {
-            _directory_lock: Some(directory_lock),
+            _directory_lock: directory_lock,
 
             memory_budget_in_bytes_per_thread,
             index: index.clone(),
@@ -546,6 +546,7 @@ impl IndexWriter {
         self.segment_updater.kill();
         let document_receiver_res = self.operation_receiver();
 
+		// @adbpg: we will never call rollback in adbpg, we just remove IndexWriter in pg abort.
         // take the directory lock to create a new index_writer.
         let directory_lock = self
             ._directory_lock
@@ -556,7 +557,7 @@ impl IndexWriter {
             &self.index,
             self.num_threads,
             self.memory_budget_in_bytes_per_thread,
-            directory_lock,
+            Some(directory_lock),
         )?;
 
         // the current `self` is dropped right away because of this call.
