@@ -76,6 +76,11 @@ impl SegmentManager {
         }
     }
 
+    pub fn reload_committed(&self, segment_metas: Vec<SegmentMeta>, delete_cursor: &DeleteCursor) {
+        let mut registers_lock = self.write();
+        registers_lock.committed.reload(segment_metas, delete_cursor);
+    }
+
     pub fn get_mergeable_segments(
         &self,
         in_merge_segment_ids: &HashSet<SegmentId>,

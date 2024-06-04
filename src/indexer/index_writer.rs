@@ -363,6 +363,32 @@ impl IndexWriter {
             .wait()
     }
 
+    #[doc(hidden)]
+    pub fn opstamp(&self) -> Opstamp {
+        self.stamper.get_stamp()
+    }
+
+    #[doc(hidden)]
+    pub fn set_committed_stamp(&mut self, to_opstamp: Opstamp) {
+        if self.committed_opstamp < to_opstamp {
+            self.committed_opstamp = to_opstamp;
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn set_stamper_stamp(&mut self, to_opstamp: Opstamp) {
+        if self.stamper.get_stamp() < to_opstamp {
+            self.stamper.set_stamp(to_opstamp);
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn reload_committed(&self) {
+        let segments = self.index().searchable_segment_metas().unwrap();
+
+        self.segment_updater.reload_committed(segments, &self.delete_queue.cursor());
+    }
+
     /// Creates a new segment.
     ///
     /// This method is useful only for users trying to do complex
@@ -647,6 +673,12 @@ impl IndexWriter {
     /// that made it in the commit.
     pub fn commit(&mut self) -> crate::Result<Opstamp> {
         self.prepare_commit()?.commit()
+    }
+
+    /// Concurrent commit
+    ///
+    pub fn concurrent_commit(&mut self) -> crate::Result<Opstamp> {
+        self.prepare_commit()?.concurrent_commit()
     }
 
     pub(crate) fn segment_updater(&self) -> &SegmentUpdater {

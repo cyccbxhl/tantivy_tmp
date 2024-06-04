@@ -98,6 +98,35 @@ impl SegmentRegister {
         }
         SegmentRegister { segment_states }
     }
+
+    pub fn reload(&mut self, segment_metas: Vec<SegmentMeta>, delete_cursor: &DeleteCursor) {
+        let mut ids: HashSet<SegmentId> = HashSet::new();
+        for segment_meta in segment_metas {
+            let segment_id = segment_meta.id();
+            ids.insert(segment_id);
+            if self.segment_states.contains_key(&segment_id) {
+                continue;
+            }
+            let segment_entry = SegmentEntry::new(segment_meta, delete_cursor.clone(), None);
+            self.segment_states.insert(segment_id, segment_entry);
+        }
+
+        // remove the segment which is merged by concurrent commit
+        let to_remove: Vec<SegmentId> = self
+            .segment_states
+            .iter()
+            .filter_map(|(segment_id, _)| {
+                if !ids.contains(segment_id) {
+                    Some(*segment_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for segment_id in &to_remove {
+            self.remove_segment(segment_id);
+        }
+    }
 }
 
 #[cfg(test)]

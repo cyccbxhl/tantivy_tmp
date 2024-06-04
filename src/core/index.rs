@@ -597,9 +597,11 @@ impl Index {
     ///
     pub fn writer_for_pg(
         &self,
+        max_num_threads: usize,
         memory_budget_in_bytes: usize,
     ) -> crate::Result<IndexWriter> {
         let mut num_threads = std::cmp::min(num_cpus::get(), MAX_NUM_THREAD);
+        num_threads = std::cmp::min(num_threads, max_num_threads);
         let mut memory_budget_num_bytes_per_thread = memory_budget_in_bytes / num_threads;
         if memory_budget_num_bytes_per_thread < MEMORY_BUDGET_NUM_BYTES_MIN {
             num_threads = (memory_budget_in_bytes / MEMORY_BUDGET_NUM_BYTES_MIN).max(1);

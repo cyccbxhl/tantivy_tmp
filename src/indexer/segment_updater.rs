@@ -451,6 +451,28 @@ impl SegmentUpdater {
         })
     }
 
+    // GC would delete other concurrent IndexWriter's
+    // uncommitted segment files, it must be forbidden
+    // in concurrent IndexWriter process.
+    pub(crate) fn concurrent_schedule_commit(
+        &self,
+        opstamp: Opstamp,
+        payload: Option<String>,
+    ) -> FutureResult<Opstamp> {
+        let segment_updater: SegmentUpdater = self.clone();
+        self.schedule_task(move || {
+            let segment_entries = segment_updater.purge_deletes(opstamp)?;
+            segment_updater.segment_manager.commit(segment_entries);
+            segment_updater.save_metas(opstamp, payload)?;
+            segment_updater.consider_merge_options();
+            Ok(opstamp)
+        })
+    }
+
+    pub(crate) fn reload_committed(&self, segment_metas: Vec<SegmentMeta>, delete_cursor: &DeleteCursor) {
+        self.segment_manager.reload_committed(segment_metas, delete_cursor);
+    }
+
     fn store_meta(&self, index_meta: &IndexMeta) {
         *self.active_index_meta.write().unwrap() = Arc::new(index_meta.clone());
     }
@@ -635,7 +657,8 @@ impl SegmentUpdater {
                 segment_updater.consider_merge_options();
             } // we drop all possible handle to a now useless `SegmentMeta`.
 
-            let _ = garbage_collect_files(segment_updater);
+            // @adbpg: (TODO) enable gc
+            // let _ = garbage_collect_files(segment_updater);
             Ok(())
         })
         .wait()?;

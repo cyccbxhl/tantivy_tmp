@@ -49,4 +49,14 @@ impl<'a> PreparedCommit<'a> {
             .segment_updater()
             .schedule_commit(self.opstamp, self.payload)
     }
+
+    /// The concurrent version of commit
+    ///
+    pub fn concurrent_commit(self) -> crate::Result<Opstamp> {
+        info!("committing {}", self.opstamp);
+        self.index_writer.reload_committed();
+        self.index_writer
+            .segment_updater()
+            .concurrent_schedule_commit(self.opstamp, self.payload).wait()
+    }
 }

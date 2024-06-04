@@ -27,6 +27,14 @@ mod atomic_impl {
             self.0.store(val, order);
             val
         }
+
+        pub fn load(&self, order: Ordering) -> u64 {
+            self.0.load(order)
+        }
+
+        pub fn store(&self, val: u64, order: Ordering) {
+            self.0.store(val, order);
+        }
     }
 }
 
@@ -59,6 +67,15 @@ mod atomic_impl {
             *lock = val;
             val
         }
+
+        pub fn load(&self, order: Ordering) -> u64 {
+            self.0.load(order)
+        }
+
+        pub fn store(&self, val: u64, order: Ordering) {
+            let mut lock = self.0.write().unwrap();
+            *lock = val;
+        }
     }
 }
 
@@ -78,6 +95,15 @@ impl Stamper {
 
     pub fn stamp(&self) -> Opstamp {
         self.0.fetch_add(1u64, Ordering::SeqCst)
+    }
+
+    pub fn get_stamp(&self) -> Opstamp {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    /// Set the stamper to a given `Opstamp` value
+    pub fn set_stamp(&self, to_opstamp: Opstamp) {
+        self.0.store(to_opstamp, Ordering::SeqCst);
     }
 
     /// Given a desired count `n`, `stamps` returns an iterator that
