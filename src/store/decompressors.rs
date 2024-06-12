@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::Compressor;
 
+#[allow(dead_code)]
 pub trait StoreCompressor {
     fn compress(&self, uncompressed: &[u8], compressed: &mut Vec<u8>) -> io::Result<()>;
     fn decompress(&self, compressed: &[u8], decompressed: &mut Vec<u8>) -> io::Result<()>;

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, io, thread};
+use std::collections::HashSet;
 
 use crate::directory::directory_lock::Lock;
 use crate::directory::error::{DeleteError, LockError, OpenReadError, OpenWriteError};
@@ -40,6 +41,7 @@ impl RetryPolicy {
 /// The `DirectoryLock` is an object that represents a file lock.
 ///
 /// It is associated with a lock file, that gets deleted on `Drop.`
+#[allow(dead_code)]
 pub struct DirectoryLock(Box<dyn Send + Sync + 'static>);
 
 struct DirectoryLockGuard {
@@ -136,6 +138,10 @@ pub trait Directory: DirectoryClone + fmt::Debug + Send + Sync + 'static {
 
     /// Returns true if and only if the file exists
     fn exists(&self, path: &Path) -> Result<bool, OpenReadError>;
+
+    /// Return all files in the directory
+    fn get_files(&self) -> Result<HashSet<PathBuf>, OpenReadError>;
+
 
     /// Opens a writer for the *virtual file* associated with
     /// a [`Path`].

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufWriter, Cursor, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -201,6 +201,10 @@ impl Directory for RamDirectory {
                 filepath: path.to_path_buf(),
             })?
             .exists(path))
+    }
+
+    fn get_files(&self) -> Result<HashSet<PathBuf>, OpenReadError> {
+        Ok(self.fs.read().unwrap().fs.keys().cloned().collect())
     }
 
     fn open_write(&self, path: &Path) -> Result<WritePtr, OpenWriteError> {

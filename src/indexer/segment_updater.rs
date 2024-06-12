@@ -2,7 +2,6 @@ use std::borrow::BorrowMut;
 use std::collections::HashSet;
 use std::io::Write;
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -346,7 +345,8 @@ impl SegmentUpdater {
         let segment_updater = self.clone();
         self.schedule_task(move || {
             segment_updater.segment_manager.add_segment(segment_entry);
-            segment_updater.consider_merge_options();
+            // @adbpg: decouple merge
+            // segment_updater.consider_merge_options();
             Ok(())
         })
     }
@@ -424,15 +424,8 @@ impl SegmentUpdater {
     ///
     /// This does not include lock files, or files that are obsolete
     /// but have not yet been deleted by the garbage collector.
-    fn list_files(&self) -> HashSet<PathBuf> {
-        let mut files: HashSet<PathBuf> = self
-            .index
-            .list_all_segment_metas()
-            .into_iter()
-            .flat_map(|segment_meta| segment_meta.list_files())
-            .collect();
-        files.insert(META_FILEPATH.to_path_buf());
-        files
+    fn list_files(&self) -> HashSet<SegmentId> {
+        self.index.load_metas().unwrap().segments.into_iter().map(|meta| meta.id()).collect()
     }
 
     pub(crate) fn schedule_commit(
@@ -445,8 +438,9 @@ impl SegmentUpdater {
             let segment_entries = segment_updater.purge_deletes(opstamp)?;
             segment_updater.segment_manager.commit(segment_entries);
             segment_updater.save_metas(opstamp, payload)?;
-            let _ = garbage_collect_files(segment_updater.clone());
-            segment_updater.consider_merge_options();
+            // @adbpg: decouple gc and merge from commit
+            // let _ = garbage_collect_files(segment_updater.clone());
+            // segment_updater.consider_merge_options();
             Ok(opstamp)
         })
     }
@@ -464,7 +458,6 @@ impl SegmentUpdater {
             let segment_entries = segment_updater.purge_deletes(opstamp)?;
             segment_updater.segment_manager.commit(segment_entries);
             segment_updater.save_metas(opstamp, payload)?;
-            segment_updater.consider_merge_options();
             Ok(opstamp)
         })
     }
@@ -569,7 +562,7 @@ impl SegmentUpdater {
             .get_mergeable_segments(&merge_segment_ids)
     }
 
-    fn consider_merge_options(&self) {
+    pub(crate) fn consider_merge_options(&self) {
         let (committed_segments, uncommitted_segments) = self.get_mergeable_segments();
 
         // Committed segments cannot be merged with uncommitted_segments.
@@ -657,7 +650,7 @@ impl SegmentUpdater {
                 segment_updater.consider_merge_options();
             } // we drop all possible handle to a now useless `SegmentMeta`.
 
-            // @adbpg: (TODO) enable gc
+            // @adbpg: decouple gc from merge
             // let _ = garbage_collect_files(segment_updater);
             Ok(())
         })

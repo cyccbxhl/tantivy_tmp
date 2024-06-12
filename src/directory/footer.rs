@@ -30,6 +30,7 @@ impl Footer {
         Footer { version, crc }
     }
 
+    #[allow(dead_code)]
     pub fn crc(&self) -> CrcHashU32 {
         self.crc
     }

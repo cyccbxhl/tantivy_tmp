@@ -7,12 +7,15 @@ use crate::core::SegmentMeta;
 
 const DEFAULT_LEVEL_LOG_SIZE: f64 = 0.75;
 const DEFAULT_MIN_LAYER_SIZE: u32 = 10_000;
-const DEFAULT_MIN_NUM_SEGMENTS_IN_MERGE: usize = 8;
+const DEFAULT_MIN_NUM_SEGMENTS_IN_MERGE: usize = 32;
 const DEFAULT_MAX_DOCS_BEFORE_MERGE: usize = 10_000_000;
 // The default value of 1 means that deletes are not taken in account when
 // identifying merge candidates. This is not a very sensible default: it was
 // set like that for backward compatibility and might change in the near future.
 const DEFAULT_DEL_DOCS_RATIO_BEFORE_MERGE: f32 = 1.0f32;
+
+const DEFAULT_SMALL_SEGMENT_THRESHOLD: u32 = 10;
+const DEFAULT_MIN_SMALL_NUM_SEGMENTS: usize = 100;
 
 /// `LogMergePolicy` tries to merge segments that have a similar number of
 /// documents.
@@ -23,6 +26,8 @@ pub struct LogMergePolicy {
     min_layer_size: u32,
     level_log_size: f64,
     del_docs_ratio_before_merge: f32,
+    small_segment_threshold: u32,
+    min_small_num_segments: usize,
 }
 
 impl LogMergePolicy {
@@ -76,6 +81,16 @@ impl LogMergePolicy {
         self.del_docs_ratio_before_merge = del_docs_ratio_before_merge;
     }
 
+    /// Set the small_segment_threshold
+    pub fn set_small_segment_threshold(&mut self, small_segment_threshold: u32) {
+        self.small_segment_threshold = small_segment_threshold;
+    }
+
+    /// Set the min_small_num_segments
+    pub fn set_min_small_num_segments(&mut self, min_small_num_segments: usize) {
+        self.min_small_num_segments = min_small_num_segments;
+    }
+
     fn has_segment_above_deletes_threshold(&self, level: &[&SegmentMeta]) -> bool {
         level
             .iter()
@@ -92,13 +107,22 @@ fn deletes_ratio(segment: &SegmentMeta) -> f32 {
 
 impl MergePolicy for LogMergePolicy {
     fn compute_merge_candidates(&self, segments: &[SegmentMeta]) -> Vec<MergeCandidate> {
+        // priority to merge small segments and meantime avoid write-amplified
+        let small_segments = segments
+            .iter()
+            .filter(|seg| seg.num_docs() <= self.small_segment_threshold)
+            .collect::<Vec<&SegmentMeta>>();
+        if small_segments.len() >= self.min_small_num_segments {
+            return vec![MergeCandidate(small_segments.iter().map(|&seg| seg.id()).collect())];
+        }
+
         let size_sorted_segments = segments
             .iter()
-            .filter(|seg| seg.num_docs() <= (self.max_docs_before_merge as u32))
+            .filter(|seg| self.small_segment_threshold < seg.num_docs() && seg.num_docs() <= (self.max_docs_before_merge as u32))
             .sorted_by_key(|seg| std::cmp::Reverse(seg.max_doc()))
             .collect::<Vec<&SegmentMeta>>();
 
-        if size_sorted_segments.is_empty() {
+        if size_sorted_segments.len() < self.min_num_segments {
             return vec![];
         }
 
@@ -135,6 +159,8 @@ impl Default for LogMergePolicy {
             min_layer_size: DEFAULT_MIN_LAYER_SIZE,
             level_log_size: DEFAULT_LEVEL_LOG_SIZE,
             del_docs_ratio_before_merge: DEFAULT_DEL_DOCS_RATIO_BEFORE_MERGE,
+            small_segment_threshold: DEFAULT_SMALL_SEGMENT_THRESHOLD,
+            min_small_num_segments: DEFAULT_MIN_SMALL_NUM_SEGMENTS,
         }
     }
 }

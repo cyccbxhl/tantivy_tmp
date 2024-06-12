@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Read, Seek, Write};
@@ -417,6 +417,20 @@ impl Directory for MmapDirectory {
         full_path
             .try_exists()
             .map_err(|io_err| OpenReadError::wrap_io_error(io_err, path.to_path_buf()))
+    }
+
+    fn get_files(&self) -> Result<HashSet<PathBuf>, OpenReadError> {
+        let mut files: HashSet<PathBuf> = HashSet::new();
+        let entries = fs::read_dir(&self.inner.root_path)
+            .map_err(|io_err| OpenReadError::wrap_io_error(io_err, self.inner.root_path.clone()))?;
+        for entry in entries {
+            let entry = entry.map_err(|io_err| OpenReadError::wrap_io_error(io_err, self.inner.root_path.clone()))?;
+            let path = entry.path();
+            if path.is_file() {
+                files.insert(path);
+            }
+        }
+        Ok(files)
     }
 
     fn open_write(&self, path: &Path) -> Result<WritePtr, OpenWriteError> {

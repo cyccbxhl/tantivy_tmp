@@ -25,6 +25,7 @@ pub struct SegmentMetaInventory {
 
 impl SegmentMetaInventory {
     /// Lists all living `SegmentMeta` object at the time of the call.
+    #[allow(dead_code)]
     pub fn all(&self) -> Vec<SegmentMeta> {
         self.inventory
             .list()

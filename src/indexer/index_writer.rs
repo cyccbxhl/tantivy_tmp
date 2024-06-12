@@ -487,6 +487,11 @@ impl IndexWriter {
         self.segment_updater.schedule_garbage_collect()
     }
 
+    /// Consider merge
+    pub fn consider_merge_options(&self) {
+        self.segment_updater.consider_merge_options();
+    }
+
     /// Deletes all documents from the index
     ///
     /// Requires `commit`ing

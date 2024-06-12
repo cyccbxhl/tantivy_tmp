@@ -1,8 +1,6 @@
-use std::collections::HashSet;
 use std::fmt;
 #[cfg(feature = "mmap")]
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::segment::Segment;
@@ -484,6 +482,7 @@ impl Index {
     /// Such segments can of course be part of the index,
     /// but also they could be segments being currently built or in the middle of a merge
     /// operation.
+    #[allow(dead_code)]
     pub(crate) fn list_all_segment_metas(&self) -> Vec<SegmentMeta> {
         self.inventory.all()
     }
@@ -649,9 +648,17 @@ impl Index {
 
     /// Creates a new segment.
     pub fn new_segment(&self) -> Segment {
+        // This method must be called before the file is
+        // actually created to ensure that a failure between
+        // writing the uncommitted segment and creating the file
+        // will not lead to garbage files that will never get removed.
+        let segment_id = SegmentId::generate_random();
+        self.directory.write_uncommitted(segment_id)
+            .expect("Write uncommitted segments failed");
+
         let segment_meta = self
             .inventory
-            .new_segment_meta(SegmentId::generate_random(), 0);
+            .new_segment_meta(segment_id, 0);
         self.segment(segment_meta)
     }
 
@@ -678,26 +685,6 @@ impl Index {
             .iter()
             .map(SegmentMeta::id)
             .collect())
-    }
-
-    /// Returns the set of corrupted files
-    pub fn validate_checksum(&self) -> crate::Result<HashSet<PathBuf>> {
-        let managed_files = self.directory.list_managed_files();
-        let active_segments_files: HashSet<PathBuf> = self
-            .searchable_segment_metas()?
-            .iter()
-            .flat_map(|segment_meta| segment_meta.list_files())
-            .collect();
-        let active_existing_files: HashSet<&PathBuf> =
-            active_segments_files.intersection(&managed_files).collect();
-
-        let mut damaged_files = HashSet::new();
-        for path in active_existing_files {
-            if !self.directory.validate_checksum(path)? {
-                damaged_files.insert((*path).clone());
-            }
-        }
-        Ok(damaged_files)
     }
 }
 
